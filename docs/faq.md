@@ -124,6 +124,13 @@ a bare `pip install <name>` appears. The release workflows use PyPI Trusted
 Publishing and need no stored token; what is missing is a one-time browser step
 by the account owner.
 
+One name is not merely unclaimed but **taken**: `physics-lint` on PyPI is an
+unrelated project, a linter for trained neural PDE surrogates. `pip install
+physics-lint` will not give you the meta-package on this site, ever. The other
+six names were free when last checked (2026-07-28), and a different
+distribution name will be picked for the meta-package before anything is
+published.
+
 ## "Has any of this touched real hardware?"
 
 No. **Every number in the portfolio is computational.** Nothing here has been

@@ -25,8 +25,12 @@ that checker verbatim. So the subcommands under `sparam`, `coupling` and
 `abstain` are those checkers', and this README does not promise any particular
 one; `--help` is the one thing every argparse CLI answers.
 
-> **Not yet on PyPI.** `pip install physics-lint` is the intended install once
-> published; until then use the source install above.
+> **The name `physics-lint` is taken on PyPI** by an unrelated project — a
+> linter for trained neural PDE surrogates. So `pip install physics-lint` will
+> **not** give you this package, now or later, and the source install above is
+> the only correct one. A different distribution name will be chosen before
+> anything is published to an index; the import name and the CLI stay as they
+> are. Checked 2026-07-28.
 
 ## It is a front door, not a fourth checker
 
