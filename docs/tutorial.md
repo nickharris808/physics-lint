@@ -114,8 +114,8 @@ Say the isolator arrived referenced to 75 Ω and your stack expects 50 Ω.
 ```bash
 $ touchstone-tools info models/ferrite_isolator.s2p
 ferrite_isolator.s2p: 2-port S, 64 points, 1-40 GHz, z0=50Ω
-  max |entry|        0.95
-  max |S - S^T|      1.900e+00  (reported, not judged)
+  max |entry|        0.944061
+  max |S - S^T|      9.252e-01  (reported, not judged)
 
 $ touchstone-tools renorm models/ferrite_isolator.s2p iso75.s2p --z0 75
 wrote iso75.s2p  (2-port S, 64 points, z0=75Ω, RI)
