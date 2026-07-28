@@ -6,3 +6,6 @@ dist/
 .pytest_cache/
 .venv/
 venv/
+
+# mkdocs build output
+site/

@@ -58,8 +58,14 @@ def _cmd_check(args: argparse.Namespace) -> int:
         print(f"error: no such path: {root}", file=sys.stderr)
         return 2
 
+    # Match on the extension, not on is_file(). A *directory* named model.s2p
+    # looks exactly like a model to anyone reading the tree, and quietly
+    # dropping it would be silence about something that was never checked. The
+    # reader refuses it by name, so it surfaces as `unreadable` and the run
+    # exits 2 -- could-not-check outranks checked-and-passed.
     files = ([root] if root.is_file()
-             else sorted(p for p in root.rglob("*") if p.suffix.lower() in _TOUCHSTONE))
+             else sorted(p for p in root.rglob("*")
+                         if p.suffix.lower() in _TOUCHSTONE))
     if not files:
         # Nothing to check is not the same as everything passing, and it is
         # nearly always a path mistake. Say so on stderr and stay green, the
