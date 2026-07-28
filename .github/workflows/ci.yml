@@ -30,9 +30,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
           # The checkers are optional at install and required to test delegation.
-          pip install git+https://github.com/nickharris808/sparam-lint.git@main \
-                      git+https://github.com/nickharris808/maxwell-lint.git@main \
-                      git+https://github.com/nickharris808/abstain-bench.git@main
+          # One line on purpose: a backslash continuation is a literal argument
+          # under PowerShell, so the Windows jobs try to install a directory
+          # named "\" and fail.
+          pip install git+https://github.com/nickharris808/sparam-lint.git@main git+https://github.com/nickharris808/maxwell-lint.git@main git+https://github.com/nickharris808/abstain-bench.git@main
       - name: Test
         run: pytest -q
       - name: Verify no private-tree imports
