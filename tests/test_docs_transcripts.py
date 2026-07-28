@@ -247,16 +247,26 @@ def test_the_one_unreproducible_figure_is_labelled_as_such_everywhere() -> None:
         )
 
 
-def test_no_closed_corpus_measurement_is_quoted_on_the_public_site() -> None:
+def test_the_commercial_section_quotes_no_measurement_at_all() -> None:
     """The iso-compute and calibration experiments ran against the private
     corpus, so their figures cannot be checked by a reader.
 
-    A first draft of the FAQ quoted `6.37%` and `14.44%` from them. The
-    conclusion is fine to state; the numbers are not, because nothing published
-    here can produce them.
+    A first draft of the FAQ quoted both. The conclusion is fine to state in
+    words; the numbers are not, because nothing published here can produce
+    them. The check is for *any* figure rather than for specific ones -- a
+    guard that spells out the forbidden numbers publishes them itself.
     """
-    text = _all_docs()
-    for forbidden in ("6.37", "14.44", "1.019×", "2.27×"):
-        assert forbidden not in text, (
-            f"the site quotes {forbidden}, a measurement from the closed corpus"
-        )
+    faq = (DOCS / "faq.md").read_text(encoding="utf-8")
+    # `.` matches newlines under re.S, so the header pattern must be
+    # newline-free or it swallows the whole document and captures nothing --
+    # which is how this guard first passed against text it should have caught.
+    m = re.search(r"^##[^\n]*commercial angle[^\n]*\n(.*?)(?=^## |\Z)",
+                  faq, re.M | re.S)
+    assert m, "the commercial-angle section is no longer in the shape this guards"
+    section = m.group(1)
+    figures = re.findall(r"\d+(?:\.\d+)?\s*%|\d+\.\d+", section)
+    assert not figures, (
+        f"the commercial-angle section quotes {figures}; every measurement "
+        "behind it was made against the closed corpus and cannot be checked "
+        "by a reader"
+    )
