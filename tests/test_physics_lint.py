@@ -23,7 +23,33 @@ from physics_lint import checkers, sarif  # noqa: E402
 from physics_lint.cli import build_parser  # noqa: E402
 from physics_lint.cli import main as cli_main  # noqa: E402
 
-EXAMPLES = HERE.parent / "sparam-lint" / "examples"
+# Fixtures are written here rather than read from a sibling checkout. A
+# standalone clone of this repository has no ../sparam-lint next to it, and a
+# test that silently depends on the developer's directory layout fails only for
+# other people.
+_HDR = "# HZ S RI R 50"
+
+
+def _write_s2p(path, gain=1.0, n=16):
+    """A simple reciprocal 2-port. gain > 1 makes it non-passive on purpose."""
+    lines = [_HDR]
+    for i in range(n):
+        f = 1e9 + i * 1e9
+        s11 = 0.10
+        s21 = 0.90 * gain
+        lines.append(f"{f:.6e} {s11} 0.0 {s21} 0.0 {s21} 0.0 {s11} 0.0")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return path
+
+
+@pytest.fixture
+def models(tmp_path):
+    """A directory with one admissible model and one that cannot exist."""
+    d = tmp_path / "models"
+    d.mkdir()
+    _write_s2p(d / "passive_line.s2p", gain=1.0)
+    _write_s2p(d / "active_gain.s2p", gain=3.0)
+    return d
 
 
 def _run(argv):
@@ -69,29 +95,29 @@ def test_doctor_reports_every_checker():
 
 # -------------------------------------------------------------- delegation
 
-def test_sparam_subcommand_delegates_exit_code():
+def test_sparam_subcommand_delegates_exit_code(models):
     """A clean model exits 0 and a non-physical one exits 1, unchanged."""
     pytest.importorskip("sparam_lint")
-    assert _run(["sparam", str(EXAMPLES / "passive_line.s2p"), "--no-colour"])[0] == 0
-    assert _run(["sparam", str(EXAMPLES / "active_gain.s2p"), "--no-colour"])[0] == 1
+    assert _run(["sparam", str(models / "passive_line.s2p"), "--no-colour"])[0] == 0
+    assert _run(["sparam", str(models / "active_gain.s2p"), "--no-colour"])[0] == 1
 
 
-def test_delegation_does_not_reinterpret_the_verdict():
+def test_delegation_does_not_reinterpret_the_verdict(models):
     """Front door, not second opinion: the JSON must be the checker's own."""
     pytest.importorskip("sparam_lint")
     from sparam_lint.cli import main as sp_main
     direct = io.StringIO()
     with redirect_stdout(direct):
-        sp_main(["--json", str(EXAMPLES / "active_gain.s2p")])
-    _, through = _run(["sparam", "--json", str(EXAMPLES / "active_gain.s2p")])
+        sp_main(["--json", str(models / "active_gain.s2p")])
+    _, through = _run(["sparam", "--json", str(models / "active_gain.s2p")])
     assert json.loads(through) == json.loads(direct.getvalue())
 
 
 # ------------------------------------------------------------------- check
 
-def test_check_walks_a_directory():
+def test_check_walks_a_directory(models):
     pytest.importorskip("sparam_lint")
-    rc, out = _run(["check", str(EXAMPLES)])
+    rc, out = _run(["check", str(models)])
     payload = json.loads(out)
     assert payload["summary"]["n_files"] >= 2
     assert rc == 1, "the directory contains a known-bad model"
@@ -111,9 +137,9 @@ def test_check_on_a_missing_path_is_an_error():
 
 # ------------------------------------------------------------------- SARIF
 
-def test_sarif_is_wellformed_and_names_only_rules_it_reports():
+def test_sarif_is_wellformed_and_names_only_rules_it_reports(models):
     pytest.importorskip("sparam_lint")
-    _, out = _run(["check", str(EXAMPLES), "--sarif"])
+    _, out = _run(["check", str(models), "--sarif"])
     doc = json.loads(out)
     assert doc["version"] == "2.1.0"
     assert doc["$schema"] == sarif.SCHEMA
@@ -128,7 +154,7 @@ def test_sarif_is_wellformed_and_names_only_rules_it_reports():
         assert res["locations"][0]["physicalLocation"]["artifactLocation"]["uri"]
 
 
-def test_sarif_invents_no_line_numbers():
+def test_sarif_invents_no_line_numbers(models):
     """A physics failure happens at a frequency, not at a line.
 
     Emitting a `region` would make the annotation render in the PR diff, which
@@ -136,7 +162,7 @@ def test_sarif_invents_no_line_numbers():
     problem is that we cannot support.
     """
     pytest.importorskip("sparam_lint")
-    _, out = _run(["check", str(EXAMPLES), "--sarif"])
+    _, out = _run(["check", str(models), "--sarif"])
     for res in json.loads(out)["runs"][0]["results"]:
         for loc in res["locations"]:
             assert "region" not in loc["physicalLocation"], (
@@ -212,7 +238,7 @@ def test_package_declares_no_hard_dependency_on_the_checkers():
         assert dist not in deps, f"{dist} must stay an optional, lazily-imported checker"
 
 
-def test_checker_flags_are_not_swallowed_by_our_parser():
+def test_checker_flags_are_not_swallowed_by_our_parser(models):
     """`physics-lint sparam --json f.s2p` must reach sparam-lint intact.
 
     argparse claimed --json as an unrecognized argument of ours until
@@ -220,7 +246,7 @@ def test_checker_flags_are_not_swallowed_by_our_parser():
     step before the hand-off breaks every checker flag at once.
     """
     pytest.importorskip("sparam_lint")
-    rc, out = _run(["sparam", "--json", str(EXAMPLES / "passive_line.s2p")])
+    rc, out = _run(["sparam", "--json", str(models / "passive_line.s2p")])
     assert rc == 0
     assert json.loads(out)["passed"] is True
 
@@ -230,3 +256,21 @@ def test_checker_help_is_the_checkers_own():
     pytest.importorskip("sparam_lint")
     with pytest.raises(SystemExit):
         _run(["sparam", "--help"])
+
+
+def test_tests_depend_on_no_sibling_checkout():
+    """A standalone clone has no ../sparam-lint beside it.
+
+    Depending on the developer's directory layout produces a suite that passes
+    locally and fails for everyone else -- which is exactly what happened on
+    the first CI run of this repository.
+    """
+    src = Path(__file__).read_text(encoding="utf-8")
+    # Drop this function's own body before scanning, or the guard matches the
+    # very strings it exists to forbid.
+    body = src.split("def test_tests_depend_on_no_sibling_checkout", 1)[0]
+    parent = "HERE.parent /"          # assembled so it is not a literal here
+    for sibling in ("sparam-lint", "maxwell-lint", "abstain-bench"):
+        needle = f'{parent} "{sibling}"'
+        assert needle not in body, f"tests reach outside the repository: {needle}"
+        assert f'"..{"/"}{sibling}"' not in body
