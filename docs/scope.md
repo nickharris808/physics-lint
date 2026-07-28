@@ -52,6 +52,13 @@ multiple-scattering approximation. It matches a boundary-element reference to
 0.081% in the exact two-cylinder limit, and the closure-versus-solver gap is an
 **additive, disclosed, unresolved** term that is never absorbed into the bound.
 
+That `0.081%` is the one figure on this site you **cannot** re-derive from
+published code: it came from the boundary-element solver used to develop the
+closure, which is not part of any release here. It is quoted because it bounds
+how much trust the closure has earned, and a reader is entitled to know which
+numbers are checkable and which are taken on our word. Everything else on these
+pages is reproducible with the commands beside it.
+
 The distinction is not pedantry. A reader who takes it as a statement about
 Maxwell's equations has been misled, and the dataset's own scope line travels
 with the data in `theorem.json` precisely so that cannot happen quietly.

@@ -77,7 +77,9 @@ demo` shows a second-order Born correction — the standard cheap fix — predic
 **monopole-closure model** — a zero-parameter analytic approximation that matches
 a boundary-element reference to 0.081% in the exact two-cylinder limit. The
 closure-versus-solver gap is an additive, disclosed, unresolved term that is
-never folded into the bound.
+never folded into the bound. (That `0.081%` is itself
+[the one number here you cannot re-derive from published code](scope.md#a-theorem-about-a-model-is-not-a-theorem-about-maxwell) —
+it came from a solver that is not in any release.)
 
 The dataset's scope line travels with the data in `theorem.json` for exactly
 this reason.
@@ -135,10 +137,16 @@ so it cannot fail these laws whatever its parameters — and accurate at speed i
 the many-body regime, with calibrated abstention and a fail-closed signoff
 certificate, is [ChipletOS](https://chipletos.com).
 
-The split is deliberate and the boundary is where it is because it was measured:
-at matched compute, data-heavy training beat architecture-heavy 6.37% to 14.44%,
-and a from-scratch reimplementation of the calibration reproduced the deployed
-threshold exactly. The algorithms are not the moat, so they are published.
+The split is deliberate, and it is where it is because it was measured rather
+than assumed: at matched training compute, spending the budget on more
+solver-generated data beat spending it on a larger model, and a from-scratch
+reimplementation of the calibration reproduced the deployed threshold exactly.
+The algorithms are not the moat, so they are published; the corpus, the fitted
+weights and the solver that generates them are not.
+
+Those two experiments were run against the closed corpus, so their numbers are
+deliberately **not** quoted here — nothing on this site should be a figure you
+cannot reproduce by running the published code.
 
 ## "Can I contribute?"
 

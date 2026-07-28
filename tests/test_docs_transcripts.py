@@ -148,3 +148,115 @@ def test_no_transcript_on_the_page_quotes_a_number_we_cannot_produce() -> None:
     cmds = {m.split()[0] for m in re.findall(r"^\$ (.+)$", _doc(), re.M)}
     unknown = cmds - known
     assert not unknown, f"tutorial documents unknown command(s): {sorted(unknown)}"
+
+
+def test_no_readme_example_promises_a_subcommand_of_a_checker_we_do_not_own() -> None:
+    """`physics-lint abstain demo` was documented and is now broken.
+
+    The `abstain-bench` distribution name resolves to a *different* project
+    than the one this table was written against, and that project has no
+    `demo` subcommand -- so a documented command failed with argparse's
+    "invalid choice". Delegation is verbatim by design, which means this
+    package must not promise any particular subcommand of a checker it does
+    not own. `--help` is the only one every argparse CLI answers.
+
+    Scope: `sparam` and `coupling` delegate to `sparam-lint` and `maxwell-lint`,
+    which are published from this portfolio, so documenting their subcommands is
+    a promise we can keep. `abstain` is not, and that is the difference the
+    guard encodes -- not a style rule.
+    """
+    readme = (HERE / "README.md").read_text(encoding="utf-8")
+    promised = set(re.findall(r"^physics-lint abstain ([a-z][a-z0-9-]*)",
+                              readme, re.M))
+    assert not promised, (
+        "README promises abstain-bench subcommand(s) this package cannot "
+        f"guarantee: {sorted(promised)}"
+    )
+
+
+def test_the_delegation_examples_that_are_documented_actually_run() -> None:
+    """Whatever the README does show under a checker name must work."""
+    from shutil import which
+
+    if which("physics-lint") is None:
+        pytest.skip("physics-lint not on PATH")
+    readme = (HERE / "README.md").read_text(encoding="utf-8")
+    for sub in re.findall(r"^physics-lint ((?:sparam|coupling|abstain) --help)",
+                          readme, re.M):
+        r = subprocess.run(["physics-lint", *sub.split()],
+                           capture_output=True, text=True)
+        assert r.returncode == 0, (
+            f"documented `physics-lint {sub}` exits {r.returncode}:\n{r.stderr}"
+        )
+
+
+# --------------------------------------------------------------------------
+# Numbers on the site, bound to their sources.
+# --------------------------------------------------------------------------
+
+DOCS = HERE / "docs"
+
+
+def _all_docs() -> str:
+    return "\n".join(p.read_text(encoding="utf-8") for p in sorted(DOCS.glob("*.md")))
+
+
+def test_the_certified_bound_and_its_consequence_come_from_the_dataset() -> None:
+    """`k <= 0.909090909091` and `at least 10.000002%` must re-derive.
+
+    The bound has to hold over every published region, and the over-prediction
+    figure is `1/sup(k) - 1` computed from those same regions. If the dataset is
+    ever regenerated and the site is not, this fails.
+    """
+    import json
+
+    data = HERE.parent / "datasets" / "screening-ceiling" / "data" / "certified_regions.jsonl"
+    if not data.exists():
+        pytest.skip("screening-ceiling data not beside this checkout")
+
+    regions = [json.loads(ln) for ln in data.read_text(encoding="utf-8").splitlines() if ln.strip()]
+    sup = max(r["sup_certified_k_hi"] for r in regions)
+    text = _all_docs()
+
+    quoted = re.findall(r"k ≤ (0\.\d+)", text)
+    assert quoted, "the site no longer quotes the certified bound"
+    for q in set(quoted):
+        assert sup <= float(q), (
+            f"site claims k <= {q} but a published region reaches {sup!r}"
+        )
+
+    pct = re.findall(r"at least (\d+\.\d+)%", text)
+    assert pct, "the site no longer quotes the over-prediction consequence"
+    live = (1.0 / sup - 1.0) * 100.0
+    for q in set(pct):
+        assert abs(live - float(q)) < 1e-5, (
+            f"site says at least {q}%, dataset gives {live:.6f}%"
+        )
+
+
+def test_the_one_unreproducible_figure_is_labelled_as_such_everywhere() -> None:
+    """0.081% comes from a solver that is in no release. Every page that quotes
+    it must say so on the same page, not in a footnote somewhere else."""
+    for p in sorted(DOCS.glob("*.md")):
+        t = p.read_text(encoding="utf-8")
+        if "0.081%" not in t:
+            continue
+        assert re.search(r"cannot .{0,40}re-derive|not part of any release|"
+                         r"not in any release|taken on our word", t), (
+            f"{p.name} quotes 0.081% without saying it is not reproducible here"
+        )
+
+
+def test_no_closed_corpus_measurement_is_quoted_on_the_public_site() -> None:
+    """The iso-compute and calibration experiments ran against the private
+    corpus, so their figures cannot be checked by a reader.
+
+    A first draft of the FAQ quoted `6.37%` and `14.44%` from them. The
+    conclusion is fine to state; the numbers are not, because nothing published
+    here can produce them.
+    """
+    text = _all_docs()
+    for forbidden in ("6.37", "14.44", "1.019×", "2.27×"):
+        assert forbidden not in text, (
+            f"the site quotes {forbidden}, a measurement from the closed corpus"
+        )

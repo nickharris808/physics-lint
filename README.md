@@ -1,6 +1,6 @@
 # physics-lint
 
-![CI](https://github.com/nickharris808/physics-lint/actions/workflows/ci.yml/badge.svg) ![Python](https://img.shields.io/badge/python-3.10%20%E2%80%93%203.13-blue) ![Licence](https://img.shields.io/badge/licence-Apache--2.0-green) ![Tests](https://img.shields.io/badge/tests-57%20passing-brightgreen)
+![CI](https://github.com/nickharris808/physics-lint/actions/workflows/ci.yml/badge.svg) ![Python](https://img.shields.io/badge/python-3.10%20%E2%80%93%203.13-blue) ![Licence](https://img.shields.io/badge/licence-Apache--2.0-green) ![Tests](https://img.shields.io/badge/tests-62%20passing-brightgreen)
 
 📖 **[Documentation site](https://nickharris808.github.io/physics-lint/)** — the portfolio narrative, the concepts, a full walkthrough, and what all of this proves (and does not). Built from [`docs/`](docs/) in this repository.
 
@@ -17,8 +17,13 @@ physics-lint doctor              # what is installed
 physics-lint check .             # walk a tree, check every Touchstone file
 physics-lint sparam my.s2p       # five laws
 physics-lint coupling demo       # screening ceiling
-physics-lint abstain demo        # abstention recall
+physics-lint abstain --help      # hands through to abstain-bench
 ```
+
+The arguments after a checker name are **not** parsed here — they are handed to
+that checker verbatim. So the subcommands under `sparam`, `coupling` and
+`abstain` are those checkers', and this README does not promise any particular
+one; `--help` is the one thing every argparse CLI answers.
 
 > **Not yet on PyPI.** `pip install physics-lint` is the intended install once
 > published; until then use the source install above.
