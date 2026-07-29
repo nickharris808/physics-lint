@@ -88,6 +88,23 @@ def _checker_version(sub: str) -> str:
         return "0"
 
 
+def _installed_summary(dist: str) -> str | None:
+    """The summary the *installed* distribution declares about itself.
+
+    Without this, `doctor` printed a description baked into CHECKERS and
+    asserted it about whatever happens to answer to that name. A distribution
+    name is not a guarantee of identity -- `abstain-bench` on this machine can
+    be a different project than the one this table was written against -- so
+    reporting our description of it would be a claim we had not checked.
+    """
+    try:
+        from importlib.metadata import metadata
+
+        return (metadata(dist) or {}).get("Summary") or None
+    except Exception:
+        return None
+
+
 def _cmd_doctor(_: argparse.Namespace) -> int:
     """Report what is installed, and how to get what is not."""
     have = available()
@@ -97,7 +114,17 @@ def _cmd_doctor(_: argparse.Namespace) -> int:
         mark = "ok     " if ok else "MISSING"
         ver = f" {_checker_version(sub)}" if ok else ""
         print(f"  [{mark}] {sub:9s} {dist}{ver}")
-        print(f"             {desc}")
+        # What the installed distribution says about itself, not what this
+        # package expects it to be. When it declares nothing, fall back to the
+        # expected description and label the fallback rather than passing it
+        # off as a fact about what is installed.
+        summary = _installed_summary(dist) if ok else None
+        if summary:
+            print(f"             {summary}")
+        elif ok:
+            print(f"             (declares no summary; expected: {desc})")
+        else:
+            print(f"             {desc}")
         if not ok:
             print(f"             {install_hint(dist)}")
     missing = [s for s, ok in have.items() if not ok]

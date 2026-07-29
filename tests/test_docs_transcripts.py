@@ -270,3 +270,33 @@ def test_the_commercial_section_quotes_no_measurement_at_all() -> None:
         "behind it was made against the closed corpus and cannot be checked "
         "by a reader"
     )
+
+
+def test_the_readme_doctor_transcripts_are_live_output() -> None:
+    """Both `doctor` blocks on the card, re-run and diffed.
+
+    They were stale within one commit of the summaries becoming live: the card
+    still showed the descriptions this package used to assert about its
+    checkers, which is exactly the drift the change was meant to end.
+    """
+    import os
+    import sys
+
+    # Run THIS tree, not whatever `physics-lint` happens to be on PATH -- an
+    # older installed build prints the descriptions this package used to
+    # assert, and the test would then fail on a stale binary rather than on a
+    # stale card.
+    r = subprocess.run([sys.executable, "-m", "physics_lint.cli", "doctor"],
+                       cwd=HERE, capture_output=True, text=True,
+                       env=dict(os.environ, PYTHONPATH=str(HERE / "src")))
+    readme = (HERE / "README.md").read_text(encoding="utf-8")
+
+    for line in r.stdout.splitlines():
+        line = line.strip()
+        # Only the description lines are worth pinning; versions move.
+        if not line or line.startswith(("[", "physics-lint", "pip install")) \
+                or line.endswith("unavailable.") or "] " in line:
+            continue
+        assert line in readme, (
+            f"`physics-lint doctor` prints a line the README does not show:\n  {line!r}"
+        )

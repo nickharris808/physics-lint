@@ -1,29 +1,32 @@
 # physics-lint
 
-![CI](https://github.com/nickharris808/physics-lint/actions/workflows/ci.yml/badge.svg) ![Python](https://img.shields.io/badge/python-3.10%20%E2%80%93%203.13-blue) ![Licence](https://img.shields.io/badge/licence-Apache--2.0-green) ![Tests](https://img.shields.io/badge/tests-62%20passing-brightgreen)
+![CI](https://github.com/nickharris808/physics-lint/actions/workflows/ci.yml/badge.svg) ![Python](https://img.shields.io/badge/python-3.10%20%E2%80%93%203.13-blue) ![Licence](https://img.shields.io/badge/licence-Apache--2.0-green) ![Tests](https://img.shields.io/badge/tests-71%20passing-brightgreen)
 
 📖 **[Documentation site](https://nickharris808.github.io/physics-lint/)** — the portfolio narrative, the concepts, a full walkthrough, and what all of this proves (and does not). Built from [`docs/`](docs/) in this repository.
 
-**One command for the physical-admissibility checkers.**
+**Check a whole directory of physics models for things that cannot exist —
+one command, findings straight into your CI.**
 
-Three tools answer the same question in three places — is this model physically
-possible? — and until now you had to know three package names and three CLIs to
-use them. This is the front door.
+For RF and signal-integrity engineers, EDA tool authors, and anyone whose
+pipeline consumes S-parameter models or coupling extractions they did not
+produce themselves.
+
+## Why this exists
+
+Every simulator believes the model you hand it. A Touchstone file that produces
+power from nothing, responds before it is excited, or presents negative
+resistance goes straight in and comes back out as a result you will act on.
+
+Three separate tools answer that question in three separate places, and until
+now you had to know three package names and three CLIs to use any of them.
+This is the front door: one command, one thing to remember, and a `--sarif`
+flag that puts the findings in GitHub's Security tab.
+
+## Install
 
 ```bash
 pip install git+https://github.com/nickharris808/physics-lint.git
-
-physics-lint doctor              # what is installed
-physics-lint check .             # walk a tree, check every Touchstone file
-physics-lint sparam my.s2p       # five laws
-physics-lint coupling demo       # screening ceiling
-physics-lint abstain --help      # hands through to abstain-bench
 ```
-
-The arguments after a checker name are **not** parsed here — they are handed to
-that checker verbatim. So the subcommands under `sparam`, `coupling` and
-`abstain` are those checkers', and this README does not promise any particular
-one; `--help` is the one thing every argparse CLI answers.
 
 > **The name `physics-lint` is taken on PyPI** by an unrelated project — a
 > linter for trained neural PDE surrogates. So `pip install physics-lint` will
@@ -31,6 +34,81 @@ one; `--help` is the one thing every argparse CLI answers.
 > the only correct one. A different distribution name will be chosen before
 > anything is published to an index; the import name and the CLI stay as they
 > are. Checked 2026-07-28.
+
+## 30-second quickstart
+
+```bash
+$ physics-lint doctor
+physics-lint 0.1.0
+  [ok     ] abstain   abstain-bench 0.1.0
+             Does your model know when to shut up? Qualifies a model on refusing correctly, scoring abstention recall separately from in-envelope accuracy.
+  [ok     ] coupling  maxwell-lint 0.1.0
+             Does your coupling extractor predict physics that cannot exist? Tests any extractor against the many-body screening ceiling.
+  [ok     ] sparam    sparam-lint 0.1.0
+             Is your S-parameter model physically possible? Five laws, plus a negative control that proves the checker still discriminates.
+```
+
+Each line is the summary the **installed** package declares about itself, not a
+description baked in here. A distribution name is not a guarantee of identity,
+and asserting what we expect to be installed would be a claim we had not
+checked.
+
+Then point it at a directory:
+
+```bash
+$ physics-lint check models/ --sarif > physics.sarif
+$ echo $?
+1
+```
+
+Three models in, two with violations, exit `1`. The SARIF carries one result
+per failing law:
+
+| rule | file |
+|---|---|
+| `passivity` | `models/active_gain.s2p` |
+| `energy_conservation` | `models/active_gain.s2p` |
+| `reciprocity` | `models/ferrite_isolator.s2p` |
+
+Rules are declared only when they fire, so the list is never padded with laws
+that had nothing to say.
+
+## A worked example: the two failures are not the same kind
+
+Reproduce it exactly — the models are the 2-port cases from the
+[`sparam-conformance`](https://huggingface.co/datasets/nickh007/sparam-conformance)
+corpus:
+
+```bash
+git clone https://huggingface.co/datasets/nickh007/sparam-conformance
+mkdir -p models && cp sparam-conformance/data/{passive_line,active_gain,ferrite_isolator}.s2p models/
+physics-lint check models/ | python3 -c '
+import json, sys
+for f in json.load(sys.stdin)["files"]:
+    bad = [law["law"] for law in f.get("laws", []) if not law["passed"]]
+    print(f["file"], "->", ", ".join(bad) or "clean")
+'
+```
+
+```
+models/active_gain.s2p -> passivity, energy_conservation
+models/ferrite_isolator.s2p -> reciprocity
+models/passive_line.s2p -> clean
+```
+
+`active_gain` is a genuine defect: the model produces more power than is put
+into it. `ferrite_isolator` is **real, buyable hardware** whose medium is
+non-reciprocal, so `S ≠ Sᵀ` is the device working correctly — a true positive
+for the law and a false alarm for the device.
+
+The tools will not make that call for you. Record that non-reciprocity is
+expected for that file; do not switch the law off, because it also catches the
+transposed-reshape bug that silently turns a reciprocity check into a no-op.
+
+The arguments after a checker name are **not** parsed here — they are handed to
+that checker verbatim. So the subcommands under `sparam`, `coupling` and
+`abstain` are those checkers', and this README does not promise any particular
+one; `--help` is the one thing every argparse CLI answers.
 
 ## It is a front door, not a fourth checker
 
@@ -58,17 +136,20 @@ the command that fixes it:
 $ physics-lint doctor
 physics-lint 0.1.0
   [ok     ] abstain   abstain-bench 0.1.0
-             Does a model know when to shut up? Abstention recall.
+             Does your model know when to shut up? Qualifies a model on refusing correctly, scoring abstention recall separately from in-envelope accuracy.
   [MISSING] coupling  maxwell-lint
              Does a coupling extractor predict impossible physics? k <= 1.
              pip install git+https://github.com/nickharris808/maxwell-lint.git@main
   [ok     ] sparam    sparam-lint 0.1.0
-             Is an S-parameter model physically possible? Five laws.
+             Is your S-parameter model physically possible? Five laws, plus a negative control that proves the checker still discriminates.
 
 1 of 3 checkers unavailable.
 ```
 
 `doctor` exits `1` when anything is missing, so it works as a CI preflight.
+
+An installed checker shows the summary **it** declares; a missing one can only
+show what this package expected, because there is nothing installed to ask.
 
 ## `check` — walk a tree
 
@@ -197,3 +278,15 @@ certificate, is the commercial core: **[ChipletOS](https://chipletos.com)**.
 ## Licence
 
 Apache-2.0. See [LICENSE](LICENSE).
+
+## Contributing
+
+[`CONTRIBUTING.md`](CONTRIBUTING.md) states this package's one non-negotiable
+rule — it performs no physics of its own — and what a good first contribution
+looks like. Each sibling repository has its own rule, and they differ; that is
+deliberate, and it is why each package is trustworthy on its own terms.
+
+## Citation
+
+[`CITATION.cff`](CITATION.cff) is machine-readable; GitHub renders a "Cite this
+repository" button from it.

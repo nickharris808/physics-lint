@@ -274,3 +274,41 @@ def test_tests_depend_on_no_sibling_checkout():
         needle = f'{parent} "{sibling}"'
         assert needle not in body, f"tests reach outside the repository: {needle}"
         assert f'"..{"/"}{sibling}"' not in body
+
+
+def test_doctor_reports_the_installed_summary_not_our_expectation(monkeypatch, capsys):
+    """`doctor` must describe what is installed, not what we hoped would be.
+
+    A distribution name is not a guarantee of identity. `abstain-bench` on a
+    given machine can be a different project than the one CHECKERS was written
+    against -- that happened -- and printing our description of it would assert
+    something never checked.
+    """
+    from physics_lint import cli
+
+    monkeypatch.setattr(cli, "available", lambda: {"sparam": True})
+    monkeypatch.setattr(cli, "_checker_version", lambda sub: "9.9.9")
+    monkeypatch.setattr(cli, "_installed_summary",
+                        lambda dist: "A completely different project")
+
+    assert cli._cmd_doctor(None) == 0
+    out = capsys.readouterr().out
+    assert "A completely different project" in out
+    _, _, expected = cli.CHECKERS["sparam"]
+    assert expected not in out, "doctor printed our expectation as if it were fact"
+
+
+def test_doctor_labels_the_fallback_when_a_package_declares_no_summary(
+    monkeypatch, capsys,
+):
+    from physics_lint import cli
+
+    monkeypatch.setattr(cli, "available", lambda: {"sparam": True})
+    monkeypatch.setattr(cli, "_checker_version", lambda sub: "9.9.9")
+    monkeypatch.setattr(cli, "_installed_summary", lambda dist: None)
+
+    cli._cmd_doctor(None)
+    out = capsys.readouterr().out
+    assert "declares no summary" in out, (
+        "an unverified description must be labelled as the fallback it is"
+    )
