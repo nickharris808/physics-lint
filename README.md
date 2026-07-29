@@ -1,6 +1,6 @@
 # physics-lint
 
-![CI](https://github.com/nickharris808/physics-lint/actions/workflows/ci.yml/badge.svg) ![Python](https://img.shields.io/badge/python-3.10%20%E2%80%93%203.13-blue) ![Licence](https://img.shields.io/badge/licence-Apache--2.0-green) ![Tests](https://img.shields.io/badge/tests-71%20passing-brightgreen)
+![CI](https://github.com/nickharris808/physics-lint/actions/workflows/ci.yml/badge.svg) ![Python](https://img.shields.io/badge/python-3.10%20%E2%80%93%203.13-blue) ![Licence](https://img.shields.io/badge/licence-Apache--2.0-green) ![Tests](https://img.shields.io/badge/tests-72%20passing-brightgreen)
 
 📖 **[Documentation site](https://nickharris808.github.io/physics-lint/)** — the portfolio narrative, the concepts, a full walkthrough, and what all of this proves (and does not). Built from [`docs/`](docs/) in this repository.
 
@@ -52,6 +52,12 @@ Each line is the summary the **installed** package declares about itself, not a
 description baked in here. A distribution name is not a guarantee of identity,
 and asserting what we expect to be installed would be a claim we had not
 checked.
+
+Which means **your output may differ from this capture, correctly** — it shows
+whatever those three packages declared on the machine it was run on. A test
+checks the property rather than the transcript: for every installed checker,
+`doctor` must print that distribution's declared `Summary`, in whatever
+environment the suite runs in.
 
 Then point it at a directory:
 

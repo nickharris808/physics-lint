@@ -272,31 +272,62 @@ def test_the_commercial_section_quotes_no_measurement_at_all() -> None:
     )
 
 
-def test_the_readme_doctor_transcripts_are_live_output() -> None:
-    """Both `doctor` blocks on the card, re-run and diffed.
+def test_doctor_prints_the_summary_the_installed_distribution_declares() -> None:
+    """The contract, checked in whatever environment this runs in.
 
-    They were stale within one commit of the summaries becoming live: the card
-    still showed the descriptions this package used to assert about its
-    checkers, which is exactly the drift the change was meant to end.
+    `doctor` used to print a description baked into CHECKERS and assert it about
+    whatever answered to that name. It now prints what the installed
+    distribution declares about itself. That is the property worth testing, and
+    unlike a transcript diff it holds everywhere -- which matters here, because
+    the same distribution name genuinely resolves to different projects on
+    different machines, and that is the whole reason the change was made.
     """
     import os
     import sys
+    from importlib.metadata import PackageNotFoundError, metadata
 
-    # Run THIS tree, not whatever `physics-lint` happens to be on PATH -- an
-    # older installed build prints the descriptions this package used to
-    # assert, and the test would then fail on a stale binary rather than on a
-    # stale card.
+    from physics_lint.checkers import CHECKERS, available
+
     r = subprocess.run([sys.executable, "-m", "physics_lint.cli", "doctor"],
                        cwd=HERE, capture_output=True, text=True,
                        env=dict(os.environ, PYTHONPATH=str(HERE / "src")))
-    readme = (HERE / "README.md").read_text(encoding="utf-8")
+    assert r.returncode in (0, 1), r.stderr
 
-    for line in r.stdout.splitlines():
-        line = line.strip()
-        # Only the description lines are worth pinning; versions move.
-        if not line or line.startswith(("[", "physics-lint", "pip install")) \
-                or line.endswith("unavailable.") or "] " in line:
+    checked = 0
+    for sub, ok in available().items():
+        if not ok:
             continue
-        assert line in readme, (
-            f"`physics-lint doctor` prints a line the README does not show:\n  {line!r}"
+        _mod, dist, _desc = CHECKERS[sub]
+        try:
+            declared = (metadata(dist) or {}).get("Summary")
+        except PackageNotFoundError:
+            continue
+        if not declared:
+            continue
+        assert declared in r.stdout, (
+            f"doctor does not print the summary {dist} declares:\n  {declared!r}"
         )
+        checked += 1
+
+    if checked == 0:
+        pytest.skip("no installed checker declares a summary to compare against")
+
+
+def test_the_readme_missing_block_quotes_what_the_code_would_print() -> None:
+    """Environment-free half of the card's `doctor` transcripts.
+
+    A checker that is not installed has nothing to declare, so `doctor` falls
+    back to CHECKERS. Wherever the card shows a `[MISSING]` line, the
+    description beside it must be that fallback verbatim.
+    """
+    from physics_lint.checkers import CHECKERS
+
+    readme = (HERE / "README.md").read_text(encoding="utf-8")
+    shown_missing = set(re.findall(r"\[MISSING\]\s+\S+\s+(\S+)", readme))
+    assert shown_missing, "the card no longer shows a MISSING example"
+    for _sub, (_mod, dist, desc) in CHECKERS.items():
+        if dist in shown_missing:
+            assert desc in readme, (
+                f"the card shows {dist} as MISSING but not the description "
+                f"CHECKERS declares for it: {desc!r}"
+            )
